@@ -1,0 +1,15 @@
+com\rosebeauticare\rosebeauticare\Exception\DuplicateCustomerException.class
+com\rosebeauticare\rosebeauticare\Repository\CustomerRepository.class
+com\rosebeauticare\rosebeauticare\Controller\CustomerController.class
+com\rosebeauticare\rosebeauticare\Exception\GlobalExceptionHandler.class
+com\rosebeauticare\rosebeauticare\Exception\ResourceNotFoundException.class
+com\rosebeauticare\rosebeauticare\DTO\CustomerDTO$CustomerDTOBuilder.class
+com\rosebeauticare\rosebeauticare\Model\Customer$CustomerBuilder.class
+com\rosebeauticare\rosebeauticare\RosebeauticareApplication.class
+com\rosebeauticare\rosebeauticare\DTO\CustomerDTO.class
+com\rosebeauticare\rosebeauticare\Exception\ValidationErrorResponse.class
+com\rosebeauticare\rosebeauticare\Exception\BusinessException.class
+com\rosebeauticare\rosebeauticare\Service\CustomerService.class
+com\rosebeauticare\rosebeauticare\Exception\ErrorResponse.class
+com\rosebeauticare\rosebeauticare\Controller\CustomerController$ResponseWrapper.class
+com\rosebeauticare\rosebeauticare\Model\Customer.class
