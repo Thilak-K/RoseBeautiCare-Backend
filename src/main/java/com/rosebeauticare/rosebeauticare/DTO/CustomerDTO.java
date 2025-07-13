@@ -1,10 +1,14 @@
 package com.rosebeauticare.rosebeauticare.DTO;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Builder;
+
 import java.util.Date;
 
 @Data
@@ -13,55 +17,39 @@ import java.util.Date;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CustomerDTO {
-    // Common fields
     private String id;
+    
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     private String name;
+    
+    @NotBlank(message = "Phone number is required")
+    @Pattern(regexp = "\\d{10}", message = "Phone number must be exactly 10 digits")
     private String phone;
+    
+    @Pattern(regexp = "\\d{10}", message = "Alternate phone number must be exactly 10 digits")
     private String altPhone;
+    
+    @Size(max = 500, message = "Address must not exceed 500 characters")
     private String address;
+    
+    @Size(max = 100, message = "District must not exceed 100 characters")
     private String district;
+    
+    @Size(max = 100, message = "State must not exceed 100 characters")
     private String state;
+    
+    @Size(max = 50, message = "Status must not exceed 50 characters")
     private String status;
+    
+    @Pattern(regexp = "^(MALE|FEMALE|OTHER)$", message = "Gender must be MALE, FEMALE, or OTHER")
     private String gender;
+    
     private Date dob;
     private Integer age;
     private Date joinDate;
     
-    // Response message
-    private String message;
-
-    // Factory methods for different response types
-    public static CustomerDTO createSuccessResponse(String id, String name) {
-        return CustomerDTO.builder()
-                .id(id)
-                .name(name)
-                .message("Operation successful")
-                .build();
-    }
-    
-    public static CustomerDTO deleteSuccessResponse(String id) {
-        return CustomerDTO.builder()
-                .id(id)
-                .message("Customer deleted successfully")
-                .build();
-    }
-    
-    public static CustomerDTO fullDetailsResponse(CustomerDTO dto) {
-        return CustomerDTO.builder()
-                .id(dto.getId())
-                .name(dto.getName())
-                .phone(dto.getPhone())
-                .altPhone(dto.getAltPhone())
-                .address(dto.getAddress())
-                .district(dto.getDistrict())
-                .state(dto.getState())
-                .status(dto.getStatus())
-                .gender(dto.getGender())
-                .dob(dto.getDob())
-                .age(dto.getAge())
-                .joinDate(dto.getJoinDate())
-                .message("Customer details retrieved")
-                .build();
-    }
-    
+    // Audit fields
+    private Date createdAt;
+    private Date updatedAt;
 }

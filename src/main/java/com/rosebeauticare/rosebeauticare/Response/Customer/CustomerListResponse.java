@@ -1,6 +1,7 @@
 package com.rosebeauticare.rosebeauticare.Response.Customer;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.rosebeauticare.rosebeauticare.DTO.CustomerDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,51 +15,27 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class DataResponse<T> {
-    private boolean success;
-    private T data;
-    private String message;
+public class CustomerListResponse {
+    private List<CustomerDTO> customers;
     private LocalDateTime timestamp;
     private String requestId;
     private String version;
     private PaginationInfo pagination;
+    private SearchInfo searchInfo;
 
-    public static <T> DataResponse<T> success(T data, String message) {
-        return DataResponse.<T>builder()
-                .success(true)
-                .data(data)
-                .message(message)
-                .timestamp(LocalDateTime.now())
-                .version("1.0.0")
-                .build();
-    }
-
-    public static <T> DataResponse<T> success(T data, String message, String requestId) {
-        return DataResponse.<T>builder()
-                .success(true)
-                .data(data)
-                .message(message)
+    public static CustomerListResponse of(List<CustomerDTO> customers, String requestId) {
+        return CustomerListResponse.builder()
+                .customers(customers)
                 .timestamp(LocalDateTime.now())
                 .requestId(requestId)
                 .version("1.0.0")
                 .build();
     }
 
-    public static <T> DataResponse<T> failure(String message) {
-        return DataResponse.<T>builder()
-                .success(false)
-                .message(message)
-                .timestamp(LocalDateTime.now())
-                .version("1.0.0")
-                .build();
-    }
-
-    public static <T> DataResponse<List<T>> successWithPagination(List<T> data, String message, 
-                                                                 int page, int size, long totalElements, int totalPages) {
-        return DataResponse.<List<T>>builder()
-                .success(true)
-                .data(data)
-                .message(message)
+    public static CustomerListResponse withPagination(List<CustomerDTO> customers, 
+                                                   int page, int size, long totalElements, int totalPages) {
+        return CustomerListResponse.builder()
+                .customers(customers)
                 .timestamp(LocalDateTime.now())
                 .version("1.0.0")
                 .pagination(PaginationInfo.builder()
@@ -88,4 +65,15 @@ public class DataResponse<T> {
             return page > 0;
         }
     }
-}
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class SearchInfo {
+        private String query;
+        private int resultCount;
+        private long searchTimeMs;
+        private String searchType;
+    }
+} 

@@ -7,7 +7,12 @@ import com.rosebeauticare.rosebeauticare.Exception.BusinessException;
 import com.rosebeauticare.rosebeauticare.Exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -20,12 +25,14 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final AtomicLong dailyRequestCount = new AtomicLong(0);
     private static final long DAILY_REQUEST_LIMIT = 5000;
 
+    @Transactional
     public CustomerDTO createCustomer(CustomerDTO customerDTO) {
         checkRequestLimit();
         validatePhoneFormat(customerDTO.getPhone());
@@ -47,6 +54,8 @@ public class CustomerService {
         return convertToDTO(savedCustomer);
     }
 
+    @Cacheable(value = "customers", key = "#id")
+    @Transactional(readOnly = true)
     public CustomerDTO getCustomerById(String id) {
         checkRequestLimit();
         log.debug("Fetching customer with ID: {}", id);
@@ -55,51 +64,33 @@ public class CustomerService {
         return convertToDTO(customer);
     }
 
+    @Transactional(readOnly = true)
     public List<Map<String, String>> getAllCustomersBasic() {
         checkRequestLimit();
-        return customerRepository.findAllByOrderByNameAsc().stream()
+        return customerRepository.findAllBasicInfo().stream()
                 .map(customer -> Map.of(
                         "id", customer.getId(),
                         "name", customer.getName()))
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    @CacheEvict(value = "customers", key = "#id")
     public CustomerDTO updateCustomer(String id, CustomerDTO customerDTO) {
         checkRequestLimit();
         Customer existingCustomer = customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with ID: " + id));
 
-        if (customerDTO.getPhone() != null) {
-            validatePhoneFormat(customerDTO.getPhone());
-            if (!customerDTO.getPhone().equals(existingCustomer.getPhone()) &&
-                    customerRepository.existsByPhone(customerDTO.getPhone())) {
-                throw new BusinessException("Phone number " + customerDTO.getPhone() + " is already in use");
-            }
-            existingCustomer.setPhone(customerDTO.getPhone());
-        }
-        if (customerDTO.getName() != null)
-            existingCustomer.setName(customerDTO.getName());
-        if (customerDTO.getAltPhone() != null)
-            existingCustomer.setAltPhone(customerDTO.getAltPhone());
-        if (customerDTO.getAddress() != null)
-            existingCustomer.setAddress(customerDTO.getAddress());
-        if (customerDTO.getDistrict() != null)
-            existingCustomer.setDistrict(customerDTO.getDistrict());
-        if (customerDTO.getState() != null)
-            existingCustomer.setState(customerDTO.getState());
-        if (customerDTO.getStatus() != null)
-            existingCustomer.setStatus(customerDTO.getStatus());
-        if (customerDTO.getGender() != null)
-            existingCustomer.setGender(customerDTO.getGender());
-        if (customerDTO.getDob() != null) {
-            existingCustomer.setDob(customerDTO.getDob().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
-        }
-
+        updateCustomerFields(existingCustomer, customerDTO);
         existingCustomer.calculateAge();
+        
         Customer updatedCustomer = customerRepository.save(existingCustomer);
+        log.info("Customer updated successfully: {}", updatedCustomer.getName());
         return convertToDTO(updatedCustomer);
     }
 
+    @Transactional
+    @CacheEvict(value = "customers", key = "#id")
     public void deleteCustomer(String id) {
         checkRequestLimit();
         if (!customerRepository.existsById(id)) {
@@ -109,12 +100,103 @@ public class CustomerService {
         log.info("Customer deleted with ID: {}", id);
     }
 
+    @Transactional(readOnly = true)
     public List<CustomerDTO> searchCustomers(String query) {
         checkRequestLimit();
         log.debug("Searching customers with query: {}", query);
         return customerRepository.findByNameContainingIgnoreCase(query).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerDTO> searchCustomers(String query, int limit) {
+        checkRequestLimit();
+        log.debug("Searching customers with query: {}, limit: {}", query, limit);
+        return customerRepository.findByNameContainingIgnoreCase(query).stream()
+                .limit(limit)
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Map<String, String>> getAllCustomersPaginated(Pageable pageable) {
+        checkRequestLimit();
+        log.debug("Fetching customers with pagination: {}", pageable);
+        return customerRepository.findAllByOrderByNameAsc(pageable)
+                .map(customer -> Map.of(
+                        "id", customer.getId(),
+                        "name", customer.getName()));
+    }
+
+    @Transactional(readOnly = true)
+    public long getCustomerCount() {
+        checkRequestLimit();
+        log.debug("Fetching customer count");
+        return customerRepository.count();
+    }
+
+    // New optimized methods
+    @Transactional(readOnly = true)
+    public List<CustomerDTO> getActiveCustomers() {
+        checkRequestLimit();
+        return customerRepository.findByStatusOrderByNameAsc("ACTIVE").stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerDTO> searchByNameOrPhone(String query) {
+        checkRequestLimit();
+        log.debug("Searching customers by name or phone: {}", query);
+        return customerRepository.findByNameOrPhoneContainingIgnoreCase(query).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerDTO> getCustomersByJoinDateRange(LocalDate startDate, LocalDate endDate) {
+        checkRequestLimit();
+        log.debug("Fetching customers by join date range: {} to {}", startDate, endDate);
+        return customerRepository.findByJoinDateBetween(startDate, endDate).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public long getCustomerCountByStatus(String status) {
+        checkRequestLimit();
+        return customerRepository.countByStatus(status);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerDTO> getCustomersByStatus(String status) {
+        checkRequestLimit();
+        log.debug("Fetching customers with status: {}", status);
+        return customerRepository.findByStatusOrderByNameAsc(status).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    private void updateCustomerFields(Customer customer, CustomerDTO dto) {
+        if (dto.getPhone() != null) {
+            validatePhoneFormat(dto.getPhone());
+            if (!dto.getPhone().equals(customer.getPhone()) &&
+                    customerRepository.existsByPhone(dto.getPhone())) {
+                throw new BusinessException("Phone number " + dto.getPhone() + " is already in use");
+            }
+            customer.setPhone(dto.getPhone());
+        }
+        if (dto.getName() != null) customer.setName(dto.getName());
+        if (dto.getAltPhone() != null) customer.setAltPhone(dto.getAltPhone());
+        if (dto.getAddress() != null) customer.setAddress(dto.getAddress());
+        if (dto.getDistrict() != null) customer.setDistrict(dto.getDistrict());
+        if (dto.getState() != null) customer.setState(dto.getState());
+        if (dto.getStatus() != null) customer.setStatus(dto.getStatus());
+        if (dto.getGender() != null) customer.setGender(dto.getGender());
+        if (dto.getDob() != null) {
+            customer.setDob(dto.getDob().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+        }
     }
 
     private void checkRequestLimit() {
